@@ -23,7 +23,7 @@ kombinasyonlar = [
     "Köfte | Patates | Pirinç Pilavı | Cacık"
 ]
 
-# === TAKVİM İÇİN GÜN VE MENÜLERİ OLUŞTUR ===
+# === GÜN VE MENÜ OLUŞTUR ===
 aylik_menu = []
 onceki = None
 for g in range(1, gun_sayisi + 1):
@@ -32,62 +32,48 @@ for g in range(1, gun_sayisi + 1):
         if secim != onceki:
             break
     onceki = secim
-
     tarih = datetime.date(yil, ay, g)
     gun_adi = calendar.day_name[tarih.weekday()]
     gun_adi_tr = {
-        'Monday': 'Pazartesi', 'Tuesday': 'Salı', 'Wednesday': 'Çarşamba',
-        'Thursday': 'Perşembe', 'Friday': 'Cuma', 'Saturday': 'Cumartesi', 'Sunday': 'Pazar'
+        'Monday': 'Pazartesi','Tuesday': 'Salı','Wednesday': 'Çarşamba',
+        'Thursday': 'Perşembe','Friday': 'Cuma','Saturday': 'Cumartesi','Sunday': 'Pazar'
     }[gun_adi]
-
-    aylik_menu.append({
-        "Gün": g,
-        "Gün Adı": gun_adi_tr,
-        "Menü": secim
-    })
+    aylik_menu.append({"Gün": g, "Gün Adı": gun_adi_tr, "Menü": secim})
 
 df = pd.DataFrame(aylik_menu)
 
-# === STREAMLIT ARAYÜZÜ ===
+# === STREAMLIT AYARLARI ===
 st.set_page_config(page_title="Ekim 2025 Yemek Takvimi", layout="wide")
-
 st.title("📅 Ekim 2025 Yemek Takvimi")
-st.write(
-    "Her güne rastgele, dengeli bir menü atanmıştır.\n"
-    "Günlere tıklayarak menü ayrıntılarını görebilir ve tüm listeyi Excel olarak indirebilirsiniz."
-)
+st.write("Gün üzerine tıkladığınızda o günün menüsü hücrenin altında açılır.")
 
-hafta_basligi = ['Pzt', 'Salı', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
+hafta_basligi = ['Pzt','Salı','Çar','Per','Cum','Cmt','Paz']
 cal = calendar.monthcalendar(yil, ay)
 
 if 'secili_gun' not in st.session_state:
-    st.session_state['secili_gun'] = 1  # Varsayılan seçim
+    st.session_state['secili_gun'] = None
 
-# === Takvim Görünümü ===
-st.subheader("Takvim")
+# === TAKVİM GÖRÜNÜMÜ: Her hücre kendi expander'ına sahip ===
 for hafta in cal:
     cols = st.columns(7)
     for i, gun in enumerate(hafta):
         if gun == 0:
             cols[i].markdown(" ")
         else:
-            if cols[i].button(f"{gun}\n{hafta_basligi[i]}", key=f"gun_{gun}"):
-                st.session_state['secili_gun'] = gun
+            secili = (st.session_state['secili_gun'] == gun)
+            # Her hücrede bir expander var, sadece seçilen açık
+            with cols[i].expander(f"{gun}\n{hafta_basligi[i]}", expanded=secili):
+                if st.button("Menüyü Göster", key=f"buton_{gun}"):
+                    st.session_state['secili_gun'] = gun
+                if secili:
+                    gunluk = df[df["Gün"] == gun].iloc[0]
+                    st.write(f"**{gunluk['Gün Adı']} - Menü:**\n{gunluk['Menü']}")
 
-# === Seçilen Gün Ayrıntısı ===
-secili_gun = st.session_state['secili_gun']
-gunluk = df[df["Gün"] == secili_gun].iloc[0]
-
-st.markdown("---")
-st.subheader(f"📌 {secili_gun} Ekim 2025 – {gunluk['Gün Adı']}")
-st.write(f"**Menü:** {gunluk['Menü']}")
-
-# === Excel İndirme ===
+# === TÜM AYI EXCEL OLARAK İNDİRME ===
 buffer = BytesIO()
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
     df.to_excel(writer, index=False)
 buffer.seek(0)
-
 st.download_button(
     label="📥 Tüm Ekim Ayı Menüsünü Excel Olarak İndir",
     data=buffer,
